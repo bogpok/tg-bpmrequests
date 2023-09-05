@@ -36,14 +36,26 @@ YNBUTTONS = [
      InlineKeyboardButton('No', callback_data="n")]
 ]
 
+def create_YNIK():
+    """Create Yes/No Inline Keyboard"""
+    return InlineKeyboardMarkup(YNBUTTONS)
+
+
+STARTDATE, ENDDATE, PRECOMMENTARY, COMMENTARY = range(4)
+
+
 # Commands
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):    
     await update.message.reply_text("Yo! Let's start!",
                                     reply_markup = ReplyKeyboardMarkup(kbuttons))
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Available commands: \n /getcases")
+    message = "Available commands: \n/getcases"
+    message+="\n/help"    
+    message+="\n/start"
+    message+="\n/getcases"    
+    message+="\n/create_request"
+    await update.message.reply_text(message)
 
 async def getcases_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('cases!')
@@ -54,18 +66,91 @@ async def getprocesses_command(update: Update, context: ContextTypes.DEFAULT_TYP
     await update.message.reply_text(text)
 
 # Responses
-class CaseCreationWrapper():
+class CaseCreationWrapper:
     CASECREATIONRID = 'CASECREATION'
-    CaseCreationWelcome = "You are going to create a request in the BPM system."
+    messages = {
+        'WELCOME':"You are going to create a request in the BPM system.",
+        'LOST':"Seems you kinda lost. Please initiate request creation again."
+    }
+    async def lost_end(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        await update.message.reply_text(CaseCreationWrapper.messages['LOST'])
+        return ConversationHandler.END
+
+
+    class SimpleRequest:
+        def __init__(self):
+            self.startdate = ''
+            self.enddate = ''
+            self.commentary = 'No comments'            
+
+        async def _sendrequest(self, update):
+            self._printdetails()
+            resp = self.details + "\nSending the request..."
+            await update.message.reply_text(resp)
+            
+        async def start(self, update: Update):
+            await update.message.reply_text(CaseCreationWrapper.messages['WELCOME'])
+            await update.message.reply_text("Please select a start date: ")
+        async def handle_startdate(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:          
+            print("...start date")  
+            self.startdate = update.message.text
+            await update.message.reply_text("Please select an end date: ")
+            return ENDDATE
+        
+        async def handle_enddate(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+            print("...end date")             
+            self.enddate = update.message.text
+            
+            await update.message.reply_text("Do you want to provide a commentary?",
+                                        reply_markup=create_YNIK())
+            return PRECOMMENTARY
+        
+        async def handle_precommentary(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+            print("...precommentary") 
+            query = update.callback_query
+            await query.answer()   
+            if query.data == 'n':
+                resp = 'You dont want to provide any comments.'
+                await query.edit_message_text(text=resp)
+                await self._sendrequest(update)
+                return ConversationHandler.END
+        
+            elif query.data == 'y':
+                resp = 'Please write a comment:'  
+                await query.edit_message_text(text=resp)                
+                return COMMENTARY
+            
+        async def handle_commentary(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+            print("...commentary") 
+            self.commentary = update.message.text
+            
+            await self._sendrequest(update)
+            return ConversationHandler.END
+            
+
+            
+        def _formdetails(self):
+            self.details = "Request details:\n"
+            self.details += str(self.startdate) + "\n"
+            self.details += str(self.enddate) + "\n"
+            self.details += str(self.commentary) + "\n"
+
+        def _printdetails(self):
+            print()
+            self._formdetails()            
+            print(self.details)
+        
+        
+
 
 def handle_resp(text: str)->str:
     processed: str = text.lower()
     if 'beez' in processed:
         return 'BEEEEEEEZZ'
     elif 'create' in processed:
-        if 'request' in processed:            
-            return CaseCreationWrapper.CASECREATIONRID
-        elif 'cake' in processed:
+        """ if 'request' in processed:            
+            return CaseCreationWrapper.CASECREATIONRID """
+        if 'cake' in processed:
             """ Portal GLADOS Quotes
             """
             cake_resp = ['The cake is a lie.',                         
@@ -98,26 +183,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         response: str = handle_resp(text)
     
     print('Bot', response)
-
-    if response == CaseCreationWrapper.CASECREATIONRID:
+    await update.message.reply_text(response)
+    """ if response == CaseCreationWrapper.CASECREATIONRID:
         await handle_createrequest(update)
     else:
-        await update.message.reply_text(response)
+         """
 
 async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f'Update {update} caused error {context.error}')
 
 
-async def handle_createrequest(update):
-    await update.message.reply_text(CaseCreationWrapper.CaseCreationWelcome)
-    await update.message.reply_text("Please select a start date: ")
-    await update.message.reply_text("Please select an end date: ")
-    await update.message.reply_text("Do you want to provide a commentary?",
-                                    reply_markup=create_YNIK())
 
-def create_YNIK():
-    """Create Yes/No Inline Keyboard"""
-    return InlineKeyboardMarkup(YNBUTTONS)
+
+
 
 async def handle_inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -134,23 +212,53 @@ async def handle_inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.edit_message_text(text=resp)
 
+global request_obj
+request_obj = CaseCreationWrapper.SimpleRequest()
 
+async def start_request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await request_obj.start(update)
+    return STARTDATE
+    
 
 
 def main() -> None:
-    print('starting...')
+    print('\n=========================\nstarting...')
     app = Application.builder().token(TOKEN).build()
 
-    # Commands
+    # Commands    
     app.add_handler(CommandHandler('start', start_command))
     app.add_handler(CommandHandler('help', help_command))
+    """     
     app.add_handler(CommandHandler('getcases', getcases_command))
     app.add_handler(CommandHandler('getprocesses', getprocesses_command))
 
     app.add_handler(CallbackQueryHandler(handle_inline))
-
+    """
     # Messages
-    app.add_handler(MessageHandler(filters.TEXT, handle_message))
+    # app.add_handler(MessageHandler(filters.TEXT, handle_message)) 
+
+    createRequest_ch = ConversationHandler(
+        entry_points=[CommandHandler("create_request", start_request)],
+        states={
+            STARTDATE: [MessageHandler(filters.TEXT, request_obj.handle_startdate)],
+            ENDDATE: [MessageHandler(filters.TEXT, request_obj.handle_enddate)],
+            PRECOMMENTARY: [CallbackQueryHandler(request_obj.handle_precommentary)],
+            COMMENTARY: [MessageHandler(filters.TEXT, request_obj.handle_commentary)],
+        },
+        fallbacks=[CommandHandler("lost", CaseCreationWrapper.lost_end)],
+    )
+    """ START_ROUTES: [
+                CallbackQueryHandler(one, pattern="^" + str(ONE) + "$"),
+                CallbackQueryHandler(two, pattern="^" + str(TWO) + "$"),
+                CallbackQueryHandler(three, pattern="^" + str(THREE) + "$"),
+                CallbackQueryHandler(four, pattern="^" + str(FOUR) + "$"),
+            ],
+            END_ROUTES: [
+                CallbackQueryHandler(start_over, pattern="^" + str(ONE) + "$"),
+                CallbackQueryHandler(end, pattern="^" + str(TWO) + "$"),
+            ], """
+    # ConversationHandler
+    app.add_handler(createRequest_ch)
     
     # Errors
     app.add_error_handler(error)
