@@ -1,4 +1,3 @@
-from typing import Final
 from random import randint
 
 from telegram import (
@@ -15,18 +14,18 @@ from telegram.ext import (
     MessageHandler, 
     filters, 
     ContextTypes,
-    CallbackQueryHandler
+    CallbackQueryHandler,
+    ConversationHandler
 )
-
-
 
 import sys
 sys.path.append('D:/GitHub/')
 
 from mysecrets.pztg.passcodes import TOKEN, BOT_USERNAME
-import pyzagi as pz
+
+""" import pyzagi as pz
 print(pz.version)
-raise ValueError('Stop')
+raise ValueError('Stop') """
 
 kbuttons = [
     [KeyboardButton("🎇 Create request")],
@@ -67,6 +66,8 @@ def handle_resp(text: str)->str:
         if 'request' in processed:            
             return CaseCreationWrapper.CASECREATIONRID
         elif 'cake' in processed:
+            """ Portal GLADOS Quotes
+            """
             cake_resp = ['The cake is a lie.',                         
                          'Quit now and cake will be served immediately.',
                          'Cake and grief counseling will be available at the conclusion of the test.',
@@ -87,7 +88,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f'User ({update.message.chat.id}) in {message_type}: "{text}"')
 
     # talking in group or private
-
     if message_type == 'group':
         if BOT_USERNAME in text:
             new_text: str = text.replace(BOT_USERNAME, '').strip()
@@ -134,27 +134,7 @@ async def handle_inline(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.edit_message_text(text=resp)
 
-'''
-CallbackQuery(chat_instance='2107519769748628414',
-               data='n', 
-               from_user=User(first_name='Bogdan', id=893904464, is_bot=False, language_code='en', username='kingpauper'), 
-               id='3839290439548826350', 
-               message=Message(channel_chat_created=False, 
-                               chat=Chat(first_name='Bogdan',
-                                         id=893904464, 
-                                         type=<ChatType.PRIVATE>, 
-                                         username='kingpauper'), 
-                                         date=datetime.datetime(2023, 9, 1, 9, 44, 55, tzinfo=<UTC>), 
-                                         delete_chat_photo=False, 
-                                         from_user=User(first_name='beezaga', 
-                                                        id=6143097514, 
-                                                        is_bot=True, 
-                                                        username='beezaga_bot'), 
-                                                        group_chat_created=False, 
-                                                        message_id=119, 
-                                                        reply_markup=InlineKeyboardMarkup(inline_keyboard=((InlineKeyboardButton(callback_data='y', text='Yes'), InlineKeyboardButton(callback_data='n', text='No')),)), supergroup_chat_created=False, text='Do you want to provide a commentary?')
-)
-'''
+
 
 
 def main() -> None:
