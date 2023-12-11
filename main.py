@@ -18,14 +18,28 @@ from telegram.ext import (
     ConversationHandler
 )
 
+
+
 import sys
 sys.path.append('D:/GitHub/')
 
-from mysecrets.pztg.passcodes import TOKEN, BOT_USERNAME
+# Those are personal values. Replace it
+from mysecrets.pztg.passcodes import (
+    TOKEN, BOT_USERNAME,
+    baseURL,
+    clientid,
+    clientsecret)
+# sys.path.append('D:/GitHub/pyzagi/src')
+from pyzagi import (
+    ConnectionBPM,
+    Process
+)
 
-""" import pyzagi as pz
-print(pz.version)
-raise ValueError('Stop') """
+import re
+
+def use_regex(input_text):
+    pattern = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", re.IGNORECASE)
+    return pattern.match(input_text)
 
 kbuttons = [
     [KeyboardButton("🎇 Create request")],
@@ -41,7 +55,8 @@ def create_YNIK():
     return InlineKeyboardMarkup(YNBUTTONS)
 
 
-STARTDATE, ENDDATE, PRECOMMENTARY, COMMENTARY = range(4)
+STARTDATE, ENDDATE, PRECOMMENTARY, COMMENTARY, DATEVALID = range(5)
+ALLSTATES = [STARTDATE, ENDDATE, PRECOMMENTARY, COMMENTARY, DATEVALID]
 
 
 # Commands
@@ -50,7 +65,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                     reply_markup = ReplyKeyboardMarkup(kbuttons))
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message = "Available commands: \n/getcases"
+    message = "Available commands:"
     message+="\n/help"    
     message+="\n/start"
     message+="\n/getcases"    
@@ -81,32 +96,96 @@ class CaseCreationWrapper:
         def __init__(self):
             self.startdate = ''
             self.enddate = ''
-            self.commentary = 'No comments'            
+            self.commentary = 'No comments'      
 
-        async def _sendrequest(self, update):
+            bizagibpm = ConnectionBPM(
+                baseURL,
+                clientid,
+                clientsecret
+            )
+            self.simpleRequest = Process(
+            processid = 'a88c3aab-a94b-49c5-b83b-5b845d721d86',
+            connection = bizagibpm,
+            startstructure = [
+                "Simplerequest.Requestdata.Startdate",
+                "Simplerequest.Requestdata.Enddate",
+                "Simplerequest.Requestdata.Commentary",
+            ]) 
+                
+            self.currstate = STARTDATE
+
+        async def _sendrequest(self, update: Update):
             self._printdetails()
             resp = self.details + "\nSending the request..."
             await update.message.reply_text(resp)
+            self.simpleRequest.start([
+                self.startdate,
+                self.enddate,
+                self.commentary
+            ])  
+
             
         async def start(self, update: Update):
             await update.message.reply_text(CaseCreationWrapper.messages['WELCOME'])
             await update.message.reply_text("Please select a start date: ")
-        async def handle_startdate(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:          
-            print("...start date")  
-            self.startdate = update.message.text
-            await update.message.reply_text("Please select an end date: ")
-            return ENDDATE
-        
-        async def handle_enddate(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-            print("...end date")             
-            self.enddate = update.message.text
+        # async def date_validation(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        #     print("date_validation")
+        #     self.startdate = update.message.text
+        #     if use_regex(update.message.text):
+                
+        #         return ALLSTATES[self.currstate+1]
+        #     else:
+        #         await update.message.reply_text("The date should be in the following format: yyyy-mm-dd\nTry again:")
+        #         return self.currstate
             
-            await update.message.reply_text("Do you want to provide a commentary?",
-                                        reply_markup=create_YNIK())
-            return PRECOMMENTARY
+        # async def handle_startdate(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:          
+        #     print("...start date")  
+
+        #     self.startdate = update.message.text           
+            
+        #     return DATEVALID
+        
+        # async def handle_enddate(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        #     print("...end date")  
+        #     await update.message.reply_text("Please select an end date: ")
+        #     self.currstate = ENDDATE           
+        #     self.enddate = update.message.text
+        #     return DATEVALID
+        #     await update.message.reply_text("Do you want to provide a commentary?",
+        #                                 reply_markup=create_YNIK())
+
+        async def handle_startdate(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+            print("...start date")
+            startdate = update.message.text
+            
+            if use_regex(startdate):
+                request_obj.startdate = startdate
+                await update.message.reply_text("Please select an end date:")
+                return ENDDATE
+            else:
+                await update.message.reply_text("The date should be in the following format: yyyy-mm-dd. Try again:")
+                return STARTDATE
+
+        async def handle_enddate(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+            print("...end date")
+            enddate = update.message.text
+            
+            if use_regex(enddate):
+                request_obj.enddate = enddate
+                await update.message.reply_text("Do you want to provide a commentary?", reply_markup=create_YNIK())
+                return PRECOMMENTARY
+            else:
+                await update.message.reply_text("The date should be in the following format: yyyy-mm-dd. Try again:")
+                return ENDDATE
+
+        async def date_validation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+            print("date_validation")
+            return DATEVALID
+        
         
         async def handle_precommentary(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             print("...precommentary") 
+            self.currstate = PRECOMMENTARY
             query = update.callback_query
             await query.answer()   
             if query.data == 'n':
@@ -122,6 +201,7 @@ class CaseCreationWrapper:
             
         async def handle_commentary(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             print("...commentary") 
+            self.currstate = COMMENTARY
             self.commentary = update.message.text
             
             await self._sendrequest(update)
@@ -244,6 +324,7 @@ def main() -> None:
             ENDDATE: [MessageHandler(filters.TEXT, request_obj.handle_enddate)],
             PRECOMMENTARY: [CallbackQueryHandler(request_obj.handle_precommentary)],
             COMMENTARY: [MessageHandler(filters.TEXT, request_obj.handle_commentary)],
+            DATEVALID: [MessageHandler(filters.TEXT, request_obj.date_validation)]
         },
         fallbacks=[CommandHandler("lost", CaseCreationWrapper.lost_end)],
     )
