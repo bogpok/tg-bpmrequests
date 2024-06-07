@@ -30,12 +30,15 @@ from mysecrets.pztg.passcodes import (
     clientid,
     clientsecret)
 # sys.path.append('D:/GitHub/pyzagi/src')
+
 from pyzagi import (
     ConnectionBPM,
-    Process
+    ProcessBPM
 )
 
 import re
+
+PROCESS_ID = '93a9aa7c-bd0e-4b09-bb2c-2d2592ff45b9'
 
 def use_regex(input_text):
     pattern = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", re.IGNORECASE)
@@ -100,11 +103,10 @@ class CaseCreationWrapper:
 
             bizagibpm = ConnectionBPM(
                 baseURL,
-                clientid,
-                clientsecret
+                {'id':clientid, 'secret':clientsecret}
             )
-            self.simpleRequest = Process(
-            processid = 'a88c3aab-a94b-49c5-b83b-5b845d721d86',
+            self.simpleRequest = ProcessBPM(
+            processid = PROCESS_ID,
             connection = bizagibpm,
             startstructure = [
                 "Simplerequest.Requestdata.Startdate",
@@ -128,31 +130,7 @@ class CaseCreationWrapper:
         async def start(self, update: Update):
             await update.message.reply_text(CaseCreationWrapper.messages['WELCOME'])
             await update.message.reply_text("Please select a start date: ")
-        # async def date_validation(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        #     print("date_validation")
-        #     self.startdate = update.message.text
-        #     if use_regex(update.message.text):
-                
-        #         return ALLSTATES[self.currstate+1]
-        #     else:
-        #         await update.message.reply_text("The date should be in the following format: yyyy-mm-dd\nTry again:")
-        #         return self.currstate
-            
-        # async def handle_startdate(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:          
-        #     print("...start date")  
-
-        #     self.startdate = update.message.text           
-            
-        #     return DATEVALID
         
-        # async def handle_enddate(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        #     print("...end date")  
-        #     await update.message.reply_text("Please select an end date: ")
-        #     self.currstate = ENDDATE           
-        #     self.enddate = update.message.text
-        #     return DATEVALID
-        #     await update.message.reply_text("Do you want to provide a commentary?",
-        #                                 reply_markup=create_YNIK())
 
         async def handle_startdate(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             print("...start date")
@@ -239,7 +217,7 @@ def handle_resp(text: str)->str:
                          'Enrichment Center regulations require both hands to be empty before any cake can be served.',
                          'Uh oh. Somebody cut the cake. I told them to wait for you, but they did it anyway. There is still some left, though, if you hurry back.',
                          "Who's gonna make the cake when I'm gone? You?"]
-            cakeid = randint(0,len(cake_resp)-1)
+            cakeid = randint(0, len(cake_resp)-1)
             print(cakeid)
             return cake_resp[cakeid]
         else:
@@ -328,16 +306,18 @@ def main() -> None:
         },
         fallbacks=[CommandHandler("lost", CaseCreationWrapper.lost_end)],
     )
-    """ START_ROUTES: [
-                CallbackQueryHandler(one, pattern="^" + str(ONE) + "$"),
-                CallbackQueryHandler(two, pattern="^" + str(TWO) + "$"),
-                CallbackQueryHandler(three, pattern="^" + str(THREE) + "$"),
-                CallbackQueryHandler(four, pattern="^" + str(FOUR) + "$"),
-            ],
-            END_ROUTES: [
-                CallbackQueryHandler(start_over, pattern="^" + str(ONE) + "$"),
-                CallbackQueryHandler(end, pattern="^" + str(TWO) + "$"),
-            ], """
+    """ 
+    START_ROUTES: [
+        CallbackQueryHandler(one, pattern="^" + str(ONE) + "$"),
+        CallbackQueryHandler(two, pattern="^" + str(TWO) + "$"),
+        CallbackQueryHandler(three, pattern="^" + str(THREE) + "$"),
+        CallbackQueryHandler(four, pattern="^" + str(FOUR) + "$"),
+    ],
+    END_ROUTES: [
+        CallbackQueryHandler(start_over, pattern="^" + str(ONE) + "$"),
+        CallbackQueryHandler(end, pattern="^" + str(TWO) + "$"),
+    ], 
+    """
     # ConversationHandler
     app.add_handler(createRequest_ch)
     
@@ -351,9 +331,4 @@ def main() -> None:
 if __name__ == '__main__':
     main()
 
-    """
-    Notes
-    https://docs.python-telegram-bot.org/en/stable/telegram.inlinekeyboardmarkup.html#inlinekeyboardmarkup
-    https://github.com/unmonoqueteclea/calendar-telegram
     
-    """
